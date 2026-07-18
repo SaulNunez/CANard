@@ -5,6 +5,7 @@
 #include "nvs_flash.h"
 #include "sd_writer.h"
 #include "can_manager.h"
+#include "bluetooth_spp.h"
 
 static const char *TAG = "main";
 
@@ -24,6 +25,9 @@ void app_main(void) {
 
     // Initialize the SD card writer subsystem (registers handler for CAN events)
     ESP_ERROR_CHECK(sd_writer_init());
+
+    // Initialize the Bluetooth SPP serial subsystem (registers handler for CAN events)
+    ESP_ERROR_CHECK(bluetooth_spp_init());
 
     // Initialize the CAN manager subsystem (starts CAN and RX task, posts CAN events)
     ESP_ERROR_CHECK(can_manager_init());
