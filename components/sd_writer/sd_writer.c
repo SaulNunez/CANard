@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "esp_timer.h"
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -36,7 +37,7 @@ static QueueHandle_t sd_write_queue = NULL;
 static sdmmc_card_t* s_card = NULL;
 
 // File path for logging
-#define LOG_FILE_PATH "/sdcard/can_log.txt"
+#define LOG_FILE_PATH "/sdcard/can_log.log"
 
 // Worker task to write to SD card
 static void sd_write_task(void *pvParameters) {
@@ -52,16 +53,25 @@ static void sd_write_task(void *pvParameters) {
                 continue;
             }
 
-            // Print standard message headers
-            fprintf(f, "ID: 0x%03" PRIx32 " | DLC: %d | Format: %s | Type: %s | Data:",
-                    message.identifier,
-                    message.data_length_code,
-                    (message.flags & TWAI_MSG_FLAG_EXTD) ? "Extended" : "Standard",
-                    (message.flags & TWAI_MSG_FLAG_RTR) ? "RTR" : "Data");
+            int64_t time_us = esp_timer_get_time();
+            int64_t seconds = time_us / 1000000;
+            int64_t microseconds = time_us % 1000000;
 
-            if (!(message.flags & TWAI_MSG_FLAG_RTR)) {
+            // can-utils format: (timestamp) interface ID#data
+            // If RTR frame: ID#R[DLC]
+            fprintf(f, "(%" PRId64 ".%06" PRId64 ") can0 ", seconds, microseconds);
+
+            if (message.flags & TWAI_MSG_FLAG_EXTD) {
+                fprintf(f, "%08" PRIX32 "#", message.identifier);
+            } else {
+                fprintf(f, "%03" PRIX32 "#", message.identifier);
+            }
+
+            if (message.flags & TWAI_MSG_FLAG_RTR) {
+                fprintf(f, "R%d", message.data_length_code);
+            } else {
                 for (int i = 0; i < message.data_length_code; i++) {
-                    fprintf(f, " 0x%02X", message.data[i]);
+                    fprintf(f, "%02X", message.data[i]);
                 }
             }
             fprintf(f, "\n");
